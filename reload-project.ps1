@@ -1,6 +1,6 @@
 # Stop minikube if running
 Write-Host "Stopping Minikube..."
-minikube stop
+minikube delete --all
 
 # Start fresh minikube
 Write-Host "Starting Minikube..."
@@ -16,13 +16,6 @@ Write-Host "Building Docker images..."
 docker build -t backend-fast-api-app:latest ./backend
 docker build -t frontend:latest ./frontend
 
-# Delete existing K8s resources
-Write-Host "Cleaning up existing resources..."
-kubectl delete all --all
-kubectl delete ingress --all
-kubectl delete configmap --all
-kubectl delete secret --all
-
 # Apply K8s configurations
 Write-Host "Applying Kubernetes configurations..."
 kubectl apply -f kubernetes-config/config/
@@ -32,7 +25,32 @@ kubectl apply -f kubernetes-config/ingress/
 
 # Wait for pods to be ready
 Write-Host "Waiting for pods to be ready..."
-kubectl wait --for=condition=ready pod --all --timeout=150s
+$timeout = 180
+$startTime = Get-Date
+$allPodsReady = $false
+
+while (-not $allPodsReady -and ((Get-Date) - $startTime).TotalSeconds -lt $timeout) {
+    $pods = kubectl get pods -o json | ConvertFrom-Json
+    $allPodsReady = $true
+    
+    foreach ($pod in $pods.items) {
+        $readyCondition = $pod.status.conditions | Where-Object { $_.type -eq "Ready" }
+        if ($readyCondition.status -ne "True") {
+            $allPodsReady = $false
+            Write-Host "Waiting for pod $($pod.metadata.name) to be ready..."
+            break
+        }
+    }
+    
+    if (-not $allPodsReady) {
+        Start-Sleep -Seconds 5
+    }
+}
+
+if (-not $allPodsReady) {
+    Write-Warning "Timeout reached: Not all pods are ready"
+    exit 1
+}
 
 # Set up port forwarding
 Write-Host "Setting up port forwarding..."
