@@ -1,0 +1,46 @@
+image: atlassian/default-image:3
+
+definitions:
+  steps:
+    - step: &build-backend
+        name: Build Backend
+        services:
+          - docker
+        script:
+          - echo $DOCKER_HUB_PASSWORD | docker login --username $DOCKER_HUB_USERNAME --password-stdin
+          - cd backend
+          - docker build -t $DOCKER_HUB_USERNAME/backend:$BITBUCKET_COMMIT .
+          - docker push $DOCKER_HUB_USERNAME/backend:$BITBUCKET_COMMIT
+          - docker tag $DOCKER_HUB_USERNAME/backend:$BITBUCKET_COMMIT $DOCKER_HUB_USERNAME/backend:latest
+          - docker push $DOCKER_HUB_USERNAME/backend:latest
+
+    - step: &build-frontend
+        name: Build Frontend
+        services:
+          - docker
+        script:
+          - cd frontend
+          - docker build -t $DOCKER_HUB_USERNAME/frontend:$BITBUCKET_COMMIT .
+          - docker push $DOCKER_HUB_USERNAME/frontend:$BITBUCKET_COMMIT
+          - docker tag $DOCKER_HUB_USERNAME/frontend:$BITBUCKET_COMMIT $DOCKER_HUB_USERNAME/frontend:latest
+          - docker push $DOCKER_HUB_USERNAME/frontend:latest
+
+    - step: &deploy
+        name: Deploy to Kubernetes
+        image: bitnami/kubectl
+        script:
+          - kubectl config set-cluster k8s --server=$KUBE_API_SERVER --insecure-skip-tls-verify=true
+          - kubectl config set-credentials bb --token=$KUBE_TOKEN
+          - kubectl config set-context deploy --cluster=k8s --user=bb
+          - kubectl config use-context deploy
+          - cd kubernetes-config
+          - kubectl apply -f config/
+          - kubectl apply -f deployments/
+          - kubectl apply -f services/
+          - kubectl apply -f ingress/
+
+pipelines:
+  default:
+    - step: *build-backend
+    - step: *build-frontend
+    - step: *deploy

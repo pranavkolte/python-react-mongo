@@ -3,18 +3,11 @@ kind: Deployment
 metadata:
   name: backend-deployment
 spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: backend
   template:
-    metadata:
-      labels:
-        app: backend
     spec:
+      imagePullSecrets:
+        - name: docker-hub-secret
       containers:
         - name: backend
-          image: backend-fast-api-app:latest
-          imagePullPolicy: Never
-          ports:
-            - containerPort: 8000
+          image: ${DOCKER_HUB_USERNAME}/backend:latest
+          imagePullPolicy: Always

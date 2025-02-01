@@ -3,18 +3,11 @@ kind: Deployment
 metadata:
   name: frontend-deployment
 spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: frontend
   template:
-    metadata:
-      labels:
-        app: frontend
     spec:
+      imagePullSecrets:
+        - name: docker-hub-secret
       containers:
         - name: frontend
-          image: frontend:latest
-          imagePullPolicy: Never
-          ports:
-            - containerPort: 3000
+          image: ${DOCKER_HUB_USERNAME}/frontend:latest
+          imagePullPolicy: Always
