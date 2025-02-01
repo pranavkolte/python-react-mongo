@@ -1,0 +1,40 @@
+services:
+  fastapi-app:
+    build: .
+    ports:
+      - "8000:8000"
+    container_name: fastapi-app
+    networks:
+      - monitoring-network
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017/
+    depends_on:
+      - mongodb
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - monitoring-network
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+      - mongodb_data:/data/db
+    networks:
+      - monitoring-network
+    environment:
+      - MONGO_INITDB_DATABASE=sample_db
+
+volumes:
+  mongodb_data:
+
+networks:
+  monitoring-network:
+    driver: bridge
